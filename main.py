@@ -42,6 +42,8 @@ def main(input_filename, output_filename):
 
     # load image
     input_image = cv2.imread('./' + input_filename)
+    if input_image is None:
+        raise Exception('./' + input_filename + ': no such file or directory.')
     # remove uncolored contents
     color_image = remove_uncolored_pixels(input_image)
     # generate mask image for black pixels
@@ -68,20 +70,16 @@ def remove_uncolored_pixels(image):
     hsv_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # turn all pixels except color pixels black (to ensure that black pixels are erased)
-    hsv_img[:, :, 0] = np.where(hsv_img[:, :, 1] > SATURATION_THRESHOLD, hsv_img[:, :, 0], 0)
-    hsv_img[:, :, 1] = np.where(hsv_img[:, :, 1] > SATURATION_THRESHOLD, hsv_img[:, :, 1], 0)
-    hsv_img[:, :, 2] = np.where(hsv_img[:, :, 1] > SATURATION_THRESHOLD, hsv_img[:, :, 2], 0)
+    low = np.array([0, 0, 0])
+    high = np.array([180, SATURATION_THRESHOLD, 255])
+    hsv_img_mask = cv2.inRange(hsv_img, low, high)
+    hsv_img[hsv_img_mask > 0] = (0, 0, 0)
 
     # HSV -> BGR
     bgr_img = cv2.cvtColor(hsv_img, cv2.COLOR_HSV2BGR)
 
     # whitens black pixels
-    for i, row in enumerate(bgr_img):
-        for j, col in enumerate(row):
-            if col[0] == 0 and col[1] == 0 and col[2] == 0:
-                bgr_img[i, j][0] = 255
-                bgr_img[i, j][1] = 255
-                bgr_img[i, j][2] = 255
+    bgr_img[np.where((bgr_img == [0, 0, 0]).all(axis=2))] = [255, 255, 255]
 
     return bgr_img
 
@@ -99,12 +97,10 @@ def generate_mask_for_black_pixels(base_img, color_img):
     diff_img = cv2.absdiff(base_img, color_img)
 
     # remove any remaining noise (change all remaining color pixels to black)
-    for i, row in enumerate(diff_img):
-        for j, col in enumerate(row):
-            if col[0] < COLOR_NOISE_THRESHOLD and col[1] < COLOR_NOISE_THRESHOLD and col[2] < COLOR_NOISE_THRESHOLD:
-                diff_img[i, j][0] = 0
-                diff_img[i, j][1] = 0
-                diff_img[i, j][2] = 0
+    low = np.array([0, 0, 0])
+    high = np.array([COLOR_NOISE_THRESHOLD, COLOR_NOISE_THRESHOLD, COLOR_NOISE_THRESHOLD])
+    diff_img_mask = cv2.inRange(diff_img, low, high)
+    diff_img[diff_img_mask > 0] = (0, 0, 0)
 
     return diff_img
 
@@ -175,5 +171,8 @@ def inpaint(image, mask):
 
 
 if __name__ == '__main__':
-    args = sys.argv
-    main(args[1], args[2])
+    try:
+        args = sys.argv
+        main(args[1], args[2])
+    except Exception as e:
+        print(e)
