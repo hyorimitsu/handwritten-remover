@@ -1,0 +1,9 @@
+version: "3.5"
+
+services:
+  run:
+    image: ${PROJECT_NAME}:python-${DOCKER_BUILD_TAG_VERSION}
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
